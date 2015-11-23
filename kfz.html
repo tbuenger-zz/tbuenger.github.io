@@ -130,6 +130,8 @@ angular.module('kfz', [])
 
     };
 
+    $scope.usermirror = false;
+
     $scope.phase3 = function() {
         $scope.phase = 3;
     }
@@ -180,8 +182,14 @@ angular.module('kfz', [])
           <div class="plate pure-button" 
           ng-class="{'button-success':(plate.targeted && plate.selected),
                      'button-error':(plate.targeted && !plate.selected),
-                     'button-outlined':(plate.selected)}"
+                     'button-outlined':(plate.selected),
+                     'mirrored':usermirror}"
           ng-bind="plate.label"></div>
+      </div>
+
+      <div class="pure-u-4-5"></div>
+      <div class="pure-u-1-5" style="margin-top:32px">
+      <div class="pure-button button-secondary" ng-click="usermirror = !usermirror">Spiegeln</div>
       </div>
     </div>
 
