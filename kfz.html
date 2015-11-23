@@ -1,0 +1,189 @@
+<!doctype html>
+<html ng-app="kfz">
+  <head>
+    <meta charset="utf-8"/>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.min.js"></script>
+    <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+    <style>
+
+        body {
+            margin: 10% 20%;
+        }
+
+        .plate {
+            width: 80%;
+            margin: 3px auto;
+        }
+        .button-success {
+            background: rgb(28, 184, 65);
+        }
+
+        .button-error {
+            background: rgb(223, 117, 20);
+        }
+
+        .mirrored {
+            -moz-transform: scale(-1, 1);
+            -webkit-transform: scale(-1, 1);
+            -o-transform: scale(-1, 1);
+            -ms-transform: scale(-1, 1);
+            transform: scale(-1, 1);
+        }
+
+        .button-secondary {
+            background: rgb(66, 184, 221); /* this is a light blue */
+            color: white;
+            border-radius: 4px;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+        }
+
+        .button-outlined {
+            box-shadow: inset 0 0 8px #111;
+        }
+    </style>
+    <script>
+
+
+angular.module('kfz', [])
+  .controller('tester', function($scope, $interval, $timeout, $location) {
+
+    var randomChoice = function(alphabet, num) {
+        return _.sample(alphabet, num).join('');
+    }
+
+    settings = $location.search();
+
+    settings.remember = parseInt(settings.remember || '') || 60;
+    settings.recognize = parseInt(settings.recognize || '') || 60;
+    settings.mirrored = (settings.mirrored || '').toLowerCase() == 'true';
+
+    $scope.settings = settings;
+
+    alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    numeric = '0123456789';
+
+    var randomPlate = function() {
+        var prefixLen = _.random(1, 3);
+        var result = randomChoice(alpha, prefixLen) + '-';
+        result += randomChoice(alpha, _.random(1, 2));
+        result += randomChoice(numeric, _.random(1, 4));
+        result = result.substring(0, 9);
+        return {
+            label: result,
+            mirrored: _(result).split().reverse().join(''),
+            targeted: false,
+            selected: false,
+        };
+    }
+
+    // generate plates
+    var countOfPlates = 50;
+    var plates = _.times(countOfPlates, randomPlate);
+
+    // select some
+    var countOfTargeted = 5;
+    var targeted = _.sample(plates, countOfTargeted);
+    _.forEach(targeted, function(p){p.targeted=true;});
+
+    $scope.countOfTargeted = countOfTargeted;
+    $scope.plates = plates;
+
+
+    var timerResolution = 5;
+    var phaseInterval;
+    var phaseTimeout;
+
+    var countItDown = function(from) {
+        $scope.countDownPrecise = from; 
+        $scope.countDown = Math.ceil($scope.countDownPrecise / 5) * 5;   
+        if (phaseInterval)
+            $interval.cancel(phaseInterval);    
+        phaseInterval = $interval(function(){ 
+            $scope.countDownPrecise--;
+            $scope.countDown = Math.ceil($scope.countDownPrecise / 5) * 5;  
+        }, 1000, from);
+    }
+
+    $scope.phase1 = function() {
+        var DURATION = settings.remember;
+        $scope.phase = 1;
+        countItDown(DURATION);
+
+        if (phaseTimeout)
+            $timeout.cancel(phaseTimeout);
+        phaseTimeout = $timeout(function(){
+            $scope.phase2();
+        }, DURATION * 1000);
+    };
+
+    $scope.phase2 = function() {
+        var DURATION = settings.recognize;
+        $scope.phase = 2;
+        countItDown(DURATION);
+
+        if (phaseTimeout)
+            $timeout.cancel(phaseTimeout);
+        phaseTimeout = $timeout(function(){
+            $scope.phase3();
+        }, DURATION * 1000);
+
+    };
+
+    $scope.phase3 = function() {
+        $scope.phase = 3;
+    }
+
+
+    $scope.phase1();
+
+
+
+  });
+    </script>
+  </head>
+  <body ng-controller="tester">
+    <div class="pure-g" ng-show="phase==1">
+      <h2 class="pure-u-1-1">Merke dir die folgenden {{countOfTargeted}} Kennzeichen:</h2>
+      <div ng-repeat-start="plate in plates | filter: {targeted:true}" class="pure-u-2-5">
+      </div>
+      <div class="pure-u-1-5">
+        <div class="plate pure-button" ng-bind="plate.label"></div>
+      </div>
+      <div class="pure-u-2-5" ng-repeat-end="">
+      </div>
+
+      <div class="pure-u-4-5"></div>
+      <div class="pure-u-1-5" style="margin-top:32px">
+      <div class="pure-button button-secondary" ng-click="phase2()">Weiter ({{countDown}}s)</div>
+      </div>
+    </div>
+
+
+    <div class="pure-g" ng-show="phase==2">
+      <h2 class="pure-u-1-1">Finde die {{countOfTargeted}} Kennzeichen wieder:</h2>
+      <div ng-repeat="plate in plates" class="pure-u-1-5">
+          <div class="plate pure-button" 
+          ng-class="{'button-outlined':plate.selected, 'mirrored':settings.mirrored}"
+          ng-bind="plate.label" ng-click="plate.selected = !plate.selected"></div>
+      </div>
+
+      <div class="pure-u-4-5"></div>
+      <div class="pure-u-1-5" style="margin-top:32px">
+      <div class="pure-button button-secondary" ng-click="phase3()">Auflösen ({{countDown}}s)</div>
+      </div>
+    </div>
+
+    <div class="pure-g" ng-show="phase==3">
+      <h2 class="pure-u-1-1">Ergebnis:</h2>
+      <div ng-repeat="plate in plates" class="pure-u-1-5">
+          <div class="plate pure-button" 
+          ng-class="{'button-success':(plate.targeted && plate.selected),
+                     'button-error':(plate.targeted && !plate.selected),
+                     'button-outlined':(plate.selected)}"
+          ng-bind="plate.label"></div>
+      </div>
+    </div>
+
+  </body>
+</html>
